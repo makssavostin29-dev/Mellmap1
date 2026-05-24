@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MellMap - Карта</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { height: 100vh; overflow: hidden; transition: background-color 0.3s, color 0.3s; }
+    :root { --bg-color: #ffffff; --text-color: #000000; --filters-bg: #f9f9f9; --details-bg: #ffffff; --border-color: #eee; --accent-color: #FF6B35; }
+    .dark-theme { --bg-color: #121212; --text-color: #e0e0e0; --filters-bg: #1e1e1e; --details-bg: #1e1e1e; --border-color: #333; }
+    body { background-color: var(--bg-color); color: var(--text-color); }
+
+    header { padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-color); border-bottom: 1px solid var(--border-color); z-index: 1000; position: relative; }
+    .logo { font-size: 1.5rem; font-weight: 700; color: #FF6B35 !important; text-decoration: none; }
+
+    .container { display: flex; height: calc(100vh - 60px); position: relative; }
+    .filters { width: 260px; padding: 1.5rem; background: var(--filters-bg); border-right: 1px solid var(--border-color); overflow-y: auto; z-index: 10; }
+    .filters h3 { margin-bottom: 1.2rem; color: #FF6B35; font-size: 1.3rem; }
+    .filter-group { margin-bottom: 1.3rem; }
+    .filter-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 1.05rem; color: var(--text-color); }
+    .filter-group select { width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem; background: var(--bg-color); color: var(--text-color); }
+
+    #map { flex: 1; height: 100%; z-index: 1; position: relative; }
+
+    .place-details {
+      width: 100%; max-width: 40%; height: 100%; padding: 1.5rem;
+      background: var(--details-bg); border-left: 1px solid var(--border-color);
+      overflow-y: auto; display: none; z-index: 20;
+      position: absolute; top: 0; right: 0; bottom: 0;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    }
+    .place-details.active { display: block; }
+
+    .close-btn { float: right; font-size: 1.8rem; cursor: pointer; color: #999; line-height: 1; }
+    .close-btn:hover { color: #FF6B35; }
+
+    .place-header h2 { margin-bottom: 0.6rem; font-size: 1.4rem; color: var(--text-color); }
+    .rating { color: #FF6B35; margin-bottom: 1.2rem; font-size: 1.2rem; }
+    .info p { margin-bottom: 0.7rem; color: var(--text-color); }
+    .description {
+      margin: 1.2rem 0; padding: 1.2rem; background: var(--filters-bg);
+      border-radius: 8px; font-style: italic; line-height: 1.5; word-break: break-word; color: var(--text-color);
+    }
+
+    .reviews-section { margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; }
+    .reviews-section h3 { margin-bottom: 1rem; color: #FF6B35; font-size: 1.2rem; }
+
+    .review-card {
+      background: var(--filters-bg); padding: 1rem; border-radius: 8px;
+      margin-bottom: 1rem; border-left: 4px solid #FF6B35;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .review-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .review-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; align-items: center; }
+    .review-author { font-weight: 700; color: var(--text-color); font-size: 1.05rem; }
+    .review-stars { color: #FF6B35; font-weight: 600; }
+    .review-text {
+      font-size: 0.95rem; line-height: 1.4; color: var(--text-color); margin-bottom: 0.5rem;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .review-date { font-size: 0.8rem; color: #999; display: block; }
+
+    .carousel {
+      margin-bottom: 1.4rem; position: relative; overflow: hidden;
+      border-radius: 10px; height: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: zoom-in;
+    }
+    .carousel img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .carousel img.active { display: block; }
+    .carousel-controls {
+      position: absolute; top: 50%; width: 100%; display: flex;
+      justify-content: space-between; transform: translateY(-50%); padding: 0 15px;
+    }
+    .carousel-btn {
+      background: rgba(255,255,255,0.85); border: none; padding: 0.6rem;
+      cursor: pointer; font-size: 1.6rem; border-radius: 50%; width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center; color: #333; transition: all 0.2s;
+    }
+    .dark-theme .carousel-btn { background: rgba(50,50,50,0.85); color: #e0e0e0; }
+    .carousel-btn:hover { background: white; transform: scale(1.1); }
+    .carousel-indicators { display: flex; justify-content: center; gap: 0.6rem; margin-top: 12px; }
+    .carousel-indicator {
+      width: 10px; height: 10px; border-radius: 50%; background: #bbb;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .dark-theme .carousel-indicator { background: #555; }
+    .carousel-indicator.active { background: #FF6B35; }
+
+    /* === СТИЛИ АВТОРИЗАЦИИ И ПРОЧЕГО === */
+    #auth-modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+    }
+    .auth-box {
+      background: var(--details-bg); padding: 2rem; border-radius: 12px;
+      width: 320px; position: relative; border: 1px solid var(--border-color);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    .auth-box input {
+      width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: 1px solid var(--border-color);
+      border-radius: 6px; background: var(--bg-color); color: var(--text-color); outline: none;
+    }
+    .auth-box input:focus { border-color: #FF6B35; }
+    .auth-submit {
+      width: 100%; padding: 0.8rem; background: #FF6B35; color: white;
+      border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; transition: background 0.2s;
+    }
+    .auth-submit:hover { background: #e05a2a; }
+
+    .auth-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      z-index: 3000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+    }
+    .auth-modal-overlay.active { display: flex; }
+
+    .star-rating {
+      display: flex;
+      gap: 5px;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    .star-rating .star {
+      color: #ccc;
+      transition: color 0.2s;
+    }
+    .star-rating .star.active,
+    .star-rating .star:hover {
+      color: #FF6B35;
+    }
+    .dark-theme .star-rating .star {
+      color: #555;
+    }
+    .dark-theme .star-rating .star.active,
+    .dark-theme .star-rating .star:hover {
+      color: #FF6B35;
+    }
+
+    .review-photo-preview {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 2px solid var(--border-color);
+    }
+    .review-photo-preview-container {
+      position: relative;
+      display: inline-block;
+    }
+    .review-photo-remove {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      line-height: 1;
+    }
+
+    .edit-profile-btn {
+      background: transparent;
+      color: #FF6B35;
+      border: 2px solid #FF6B35;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .edit-profile-btn:hover {
+      background: #FF6B35;
+      color: white;
+    }
+
+    .auth-error {
+      color: red;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      display: none;
+      text-align: center;
+    }
+
+    #review-detail-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 4000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+    }
+    #review-detail-modal.active { display: flex; }
+
+    .review-detail-box {
+      background: var(--details-bg);
+      padding: 2rem;
+      border-radius: 16px;
+      width: 700px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+      color: var(--text-color);
+    }
+
+    .review-detail-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+    }
+    .review-detail-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-right: 1rem;
+      border: 2px solid #FF6B35;
+    }
+    .review-detail-author-info h4 {
+      font-size: 1.2rem;
+      margin-bottom: 0.2rem;
+    }
+    .review-detail-date {
+      font-size: 0.85rem;
+      color: #999;
+    }
+
+    .review-detail-ratings {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--bg-color);
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    .rating-item {
+      text-align: center;
+    }
+    .rating-item span {
+      display: block;
+      font-size: 0.8rem;
+      color: #666;
+      margin-bottom: 0.3rem;
+    }
+    .rating-stars {
+      color: #FF6B35;
+      font-size: 1.2rem;
+    }
+
+    .review-detail-text {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .review-detail-photos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .review-detail-photo {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 8px;
+      cursor: zoom-in;
+      transition: transform 0.2s;
+    }
+    .review-detail-photo:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/" class="logo">MellMap</a>
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <div id="auth-buttons-main">
+        <button onclick="window.location.href='/map#login'" style="background: transparent; color: var(--text-color); border: 1px solid var(--border-color); padding: 5px 15px; border-radius: 20px; cursor: pointer; font-weight: 600;">Войти</button>
+        <button onclick="window.location.href='/map#register'" style="background: #FF6B35; color: white; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-weight: 600; margin-left: 10px;">Регистрация</button>
+      </div>
+
+      <div id="user-info-main" style="display:none; align-items: center; gap: 10px;">
+        <img id="user-avatar-display" src="" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: none;">
+        <span id="username-display-main" style="font-weight:600; color:#FF6B35;"></span>
+        <button onclick="logout()" style="background:none; border:none; color:#999; cursor:pointer;">Выйти</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <aside class="filters">
+      <h3>Фильтры</h3>
+      <div class="filter-group"><label>Административный округ</label><select id="district-filter"><option value="">Все округа</option><option value="ЦАО">ЦАО</option><option value="САО">САО</option><option value="СВАО">СВАО</option><option value="ВАО">ВАО</option><option value="ЮВАО">ЮВАО</option><option value="ЮАО">ЮАО</option><option value="ЮЗАО">ЮЗАО</option><option value="ЗАО">ЗАО</option><option value="СЗАО">СЗАО</option><option value="ЗелАО">ЗелАО</option><option value="НАО">НАО</option><option value="ТАО">ТАО</option></select></div>
+      <div class="filter-group"><label>Категория</label><select id="category-filter"><option value="">Все категории</option><option value="cafe">Кафе</option><option value="restaurant">Ресторан</option><option value="bar">Бар</option></select></div>
+      <div class="filter-group"><label>Время завтрака</label><select id="breakfast-time-filter"><option value="">Любое</option><option value="all day">Весь день</option><option value="weekends only">Только по выходным</option><option value="specific time">В определённое время</option></select></div>
+    </aside>
+
+    <div id="map"></div>
+
+    <aside class="place-details" id="place-details">
+      <div class="close-btn" id="close-details">×</div>
+      <div class="place-header"><h2 id="place-name">Название заведения</h2><div class="rating" id="place-rating">⭐️ 4.0</div></div>
+
+      <div class="carousel" id="photo-carousel"></div>
+
+      <div class="info">
+        <p><strong>Адрес:</strong> <span id="place-address">...</span></p>
+        <p><strong>Средний чек:</strong> <span id="place-price">...</span></p>
+        <p><strong>Округ:</strong> <span id="place-district">...</span></p>
+        <p><strong>Категория:</strong> <span id="place-category">...</span></p>
+        <p><strong>Завтрак:</strong> <span id="place-breakfast-time">...</span></p>
+        <p id="place-website-container" style="display: none;"><strong>Сайт:</strong> <a id="place-website" href="#" target="_blank" style="color: #FF6B35;">...</a></p>
+      </div>
+
+      <div class="description" id="place-description">Описание отсутствует</div>
+
+      <div id="add-review-for-place-container" style="margin-top:1.5rem; display:none;">
+          <button onclick="openReviewModalFromMap()" class="find-btn" style="background:#FF6B35; color:white; border:none; padding:0.8rem; border-radius:30px; cursor:pointer; font-weight:600; width:100%;">
+               Оставить отзыв об этом месте
+          </button>
+      </div>
+
+      <div class="reviews-section"><h3>Отзывы посетителей</h3><div id="reviews-list"></div></div>
+    </aside>
+  </div>
+
+  <div id="auth-modal">
+    <div class="auth-box">
+      <span onclick="closeAuthModal()" style="position:absolute; top:10px; right:15px; cursor:pointer; font-size:1.5rem; color:#999;">&times;</span>
+      <h3 id="auth-title" style="margin-bottom:1rem; color:#FF6B35;">Вход</h3>
+      <input type="text" id="auth-username" placeholder="Логин">
+      <input type="password" id="auth-password" placeholder="Пароль">
+      <button onclick="submitAuth()" class="auth-submit">Продолжить</button>
+      <p id="auth-error" style="color:red; font-size:0.8rem; margin-top:0.5rem; display:none;"></p>
+    </div>
+  </div>
+
+  <div id="review-modal-map" class="auth-modal-overlay">
+    <div class="auth-box" style="width: 800px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
+        <span class="auth-close" onclick="closeReviewModalMap()">&times;</span>
+        <h3 class="auth-title">Оставить отзыв</h3>
+
+        <div style="margin-bottom:1.5rem;">
+            <label style="display:block; margin-bottom:0.5rem; font-weight:600;">Фотографии заведения (макс. 5):</label>
+            <div id="review-photos-preview-map" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:0.5rem;"></div>
+            <input type="file" id="review-photo-input-map" accept="image/*" multiple onchange="previewReviewPhotosMap(this)" style="display:none;">
+            <button onclick="document.getElementById('review-photo-input-map').click()" class="edit-profile-btn" style="padding:0.5rem 1rem; font-size:0.9rem;">
+                📷 Добавить фото
+            </button>
+        </div>
+
+        <textarea id="review-text-map" class="auth-input" placeholder="Расскажите о вашем опыте подробнее... Что вам понравилось? Как было обслуживание?" style="height:200px; resize:vertical; font-size: 1.1rem; line-height: 1.6;"></textarea>
+
+        <div style="margin:1.5rem 0;">
+            <h4 style="margin-bottom:1rem; color:#FF6B35;">Оцените по критериям:</h4>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:0.3rem; font-weight:600;">Персонал:</label>
+                <div class="star-rating" data-criterion="staff">
+                    <span class="star" data-value="1">★</span><span class="star" data-value="2">★</span><span class="star" data-value="3">★</span><span class="star" data-value="4">★</span><span class="star" data-value="5">★</span>
+                </div>
+                <input type="hidden" id="rating-staff-map" value="0">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:0.3rem; font-weight:600;">Еда:</label>
+                <div class="star-rating" data-criterion="food">
+                    <span class="star" data-value="1">★</span><span class="star" data-value="2">★</span><span class="star" data-value="3">★</span><span class="star" data-value="4">★</span><span class="star" data-value="5">★</span>
+                </div>
+                <input type="hidden" id="rating-food-map" value="0">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:0.3rem; font-weight:600;">Интерьер:</label>
+                <div class="star-rating" data-criterion="interior">
+                    <span class="star" data-value="1">★</span><span class="star" data-value="2">★</span><span class="star" data-value="3">★</span><span class="star" data-value="4">★</span><span class="star" data-value="5">★</span>
+                </div>
+                <input type="hidden" id="rating-interior-map" value="0">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:0.3rem; font-weight:600;">Общая оценка:</label>
+                <div class="star-rating" data-criterion="total">
+                    <span class="star" data-value="1">★</span><span class="star" data-value="2">★</span><span class="star" data-value="3">★</span><span class="star" data-value="4">★</span><span class="star" data-value="5">★</span>
+                </div>
+                <input type="hidden" id="rating-total-map" value="0">
+            </div>
+        </div>
+
+        <button onclick="submitReviewFromMap()" class="auth-submit">Отправить отзыв</button>
+        <p id="review-error-msg-map" class="auth-error"></p>
+    </div>
+  </div>
+
+  <div id="review-detail-modal">
+    <div class="review-detail-box">
+      <span class="auth-close" onclick="closeReviewDetailModal()" style="position:absolute; top:15px; right:20px;">&times;</span>
+
+      <input type="hidden" id="current-review-id" value="">
+
+      <div class="review-detail-header">
+        <img id="detail-review-avatar" src="" alt="Avatar" class="review-detail-avatar">
+        <div class="review-detail-author-info">
+          <h4 id="detail-review-author">Имя пользователя</h4>
+          <span id="detail-review-date" class="review-detail-date">Дата</span>
+        </div>
+      </div>
+
+      <div class="review-detail-ratings">
+        <div class="rating-item">
+          <span>Общая оценка</span>
+          <div id="detail-rating-total" class="rating-stars"></div>
+        </div>
+        <div class="rating-item">
+          <span>Персонал</span>
+          <div id="detail-rating-staff" class="rating-stars"></div>
+        </div>
+        <div class="rating-item">
+          <span>Еда</span>
+          <div id="detail-rating-food" class="rating-stars"></div>
+        </div>
+        <div class="rating-item">
+          <span>Интерьер</span>
+          <div id="detail-rating-interior" class="rating-stars"></div>
+        </div>
+      </div>
+
+      <div id="detail-review-text" class="review-detail-text">
+        Текст отзыва...
+      </div>
+
+      <div id="detail-review-photos" class="review-detail-photos">
+      </div>
+
+      <button onclick="deleteCurrentReview()" class="auth-submit" style="background:#ff4d4d; margin-top:1rem;"> Удалить отзыв</button>
+
+    </div>
+  </div>
+
+  <div class="zoom-modal" id="zoom-modal">
+    <img id="zoomed-photo" class="zoomed-photo" src="" alt="Увеличенное фото">
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/assets/js/map.js"></script>
+  <script>
+    if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-theme');
+  </script>
+  <style>
+    #zoom-modal {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background: rgba(0,0,0,0.9) !important;
+      backdrop-filter: blur(15px) !important;
+      display: none !important;
+      z-index: 999999 !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    #zoom-modal.active {
+      display: flex !important;
+    }
+    #zoomed-photo {
+      max-width: 98vw !important;
+      max-height: 98vh !important;
+      width: auto !important;
+      height: auto !important;
+      object-fit: contain !important;
+      border: 5px solid #FF6B35 !important;
+      border-radius: 12px !important;
+      box-shadow: 0 0 100px rgba(0,0,0,1) !important;
+    }
+  </style>
+</body>
+</html>

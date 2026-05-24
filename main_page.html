@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MellMap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { min-height: 100vh; display: flex; flex-direction: column; transition: background-color 0.3s, color 0.3s; overflow: hidden; position: relative; }
+    :root { --bg-color: #ffffff; --text-color: #000000; --card-bg: #f9f9f9; --btn-primary-bg: #FF6B35; --btn-primary-hover: #e05a2a; --border-color: #eee; }
+    .dark-theme { --bg-color: #121212; --text-color: #e0e0e0; --card-bg: #1e1e1e; --border-color: #333; }
+    body { background-color: var(--bg-color); color: var(--text-color); }
+
+    header { padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-color); border-bottom: 1px solid var(--border-color); z-index: 10; }
+    .logo { font-size: 1.8rem; font-weight: 700; color: #FF6B35; text-decoration: none; }
+
+    .theme-toggle { background: none; border: 1px solid var(--border-color); width: 44px; height: 24px; border-radius: 12px; position: relative; cursor: pointer; outline: none; }
+    .theme-toggle::before { content: ''; position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #FF6B35; top: 1px; left: 2px; transition: transform 0.3s ease; }
+    .dark-theme .theme-toggle::before { transform: translateX(20px); background: #03dac6; }
+
+    main { flex: 1; position: relative; padding: 2rem 0; overflow: hidden; }
+    .left-col { position: absolute; left: 2rem; top: 2rem; width: 320px; background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); overflow-y: auto; max-height: calc(100vh - 120px); }
+    .right-col { position: absolute; right: 2rem; top: 2rem; width: 280px; display: flex; flex-direction: column; gap: 1rem; height: calc(100vh - 120px); overflow-y: auto; }
+
+    .place-card-fullheight { background: var(--card-bg); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); flex: 0 0 auto; display: flex; flex-direction: column; cursor: pointer; transition: transform 0.2s; border: 1px solid var(--border-color); }
+    .place-card-fullheight:hover { transform: translateY(-3px); }
+    .card-photo-16-9 { height: 120px; background-size: cover; background-position: center; }
+    .card-info-full { padding: 0.9rem; flex: 1; display: flex; flex-direction: column; }
+    .card-info-full h3 { font-size: 1.1rem; margin-bottom: 0.3rem; color: var(--text-color); }
+    .card-meta-full { font-size: 0.85rem; color: #666; margin-bottom: 0.2rem; }
+    .dark-theme .card-meta-full { color: #aaa; }
+    .card-meta-full span { font-weight: 600; color: #FF6B35; }
+
+    .center-col { position: absolute; left: 50%; top: 2rem; transform: translateX(-50%); width: 360px; display: flex; flex-direction: column; gap: 1.5rem; z-index: 5; }
+    .map-button-container { display: flex; justify-content: center; }
+    .map-link { width: 280px; padding: 1.2rem; font-size: 1.2rem; font-weight: 700; color: #fff; background-color: #FF6B35; border: none; border-radius: 30px; text-decoration: none; display: flex; justify-content: center; align-items: center; transition: background-color 0.3s ease; box-shadow: 0 6px 12px rgba(255, 107, 53, 0.3); }
+    .map-link:hover { background-color: #e05a2a; color: white; }
+
+    .quick-search { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); }
+    .quick-search h3 { color: #FF6B35; margin-bottom: 1rem; font-size: 1.2rem; }
+    .quick-search label { display: block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.95rem; color: var(--text-color); }
+    .quick-search select, .quick-search input { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-color); }
+    .dark-theme .quick-search select, .dark-theme .quick-search input { background: #2a2a2a; border-color: #444; }
+    .find-btn { width: 100%; padding: 0.8rem; font-size: 1rem; font-weight: 600; color: #fff; background-color: #FF6B35; border: none; border-radius: 30px; cursor: pointer; transition: background-color 0.3s ease; }
+    .find-btn:hover { background-color: #e05a2a; }
+
+    #result { margin-top: 1.5rem; display: none; }
+    #result-name { font-weight: 600; margin-bottom: 0.5rem; color: var(--text-color); }
+    #result-meta { font-size: 0.9rem; color: #666; }
+    .dark-theme #result-meta { color: #aaa; }
+    #result-link { display: block; width: 100%; padding: 0.7rem; margin-top: 0.8rem; font-size: 0.95rem; font-weight: 600; color: #fff; background-color: #FF6B35; text-decoration: none; border-radius: 30px; text-align: center; transition: background-color 0.3s ease; }
+    #result-link:hover { background-color: #e05a2a; }
+
+    .left-col h2 { font-size: 1.3rem; margin-bottom: 0.8rem; color: #FF6B35; }
+    .left-col p { margin-bottom: 1rem; line-height: 1.6; font-size: 0.95rem; color: var(--text-color); }
+    .steps ol { padding-left: 1.2rem; margin-bottom: 1rem; }
+    .steps li { margin-bottom: 0.6rem; line-height: 1.5; color: var(--text-color); }
+
+    /* Модальные окна */
+    .auth-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+    }
+    .auth-modal-overlay.active { display: flex; }
+
+    .auth-box {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 12px;
+      width: 400px;
+      max-width: 90%;
+      position: relative;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      color: var(--text-color);
+    }
+    .auth-close {
+      position: absolute;
+      top: 15px; right: 20px;
+      cursor: pointer;
+      font-size: 1.5rem;
+      color: #999;
+    }
+    .auth-title {
+      margin-bottom: 1.5rem;
+      color: #FF6B35;
+      text-align: center;
+    }
+    .auth-input {
+      width: 100%;
+      padding: 0.8rem;
+      margin-bottom: 0.8rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+    .dark-theme .auth-input { background: #2a2a2a; border-color: #444; }
+    .auth-submit {
+      width: 100%;
+      padding: 0.8rem;
+      background: #FF6B35;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    .auth-submit:hover { background: #e05a2a; }
+
+    .avatar-upload {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .avatar-label {
+      cursor: pointer;
+      display: inline-block;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #eee;
+      overflow: hidden;
+      border: 2px dashed #ccc;
+      position: relative;
+    }
+    .dark-theme .avatar-label { background: #333; border-color: #555; }
+    .avatar-preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    .avatar-placeholder {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.8rem;
+      color: #666;
+    }
+    .dark-theme .avatar-placeholder { color: #aaa; }
+    .auth-error {
+      color: red;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      display: none;
+      text-align: center;
+    }
+    .auth-switch-text {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: var(--text-color);
+    }
+    .auth-switch-text a {
+      color: #FF6B35;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* Профиль */
+    .profile-avatar-large {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #FF6B35;
+      margin: 0 auto 1rem;
+      display: block;
+    }
+    .profile-stats {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: var(--bg-color);
+      border-radius: 8px;
+    }
+    .dark-theme .profile-stats { background: #2a2a2a; }
+    .profile-stats h4 {
+      margin-bottom: 0.5rem;
+      color: #FF6B35;
+    }
+    .reviews-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 1.5rem;
+    }
+    .review-item {
+      background: var(--bg-color);
+      padding: 0.8rem;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      border-left: 3px solid #FF6B35;
+    }
+    .dark-theme .review-item { background: #2a2a2a; }
+    .review-item-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.3rem;
+    }
+    .review-item-place {
+      font-weight: 600;
+      color: #FF6B35;
+    }
+    .review-item-rating {
+      color: #FF6B35;
+    }
+    .review-item-date {
+      font-size: 0.8rem;
+      color: #999;
+    }
+    .dark-theme .review-item-date { color: #aaa; }
+    .edit-profile-btn {
+      width: 100%;
+      padding: 0.8rem;
+      background: transparent;
+      color: #FF6B35;
+      border: 2px solid #FF6B35;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    .edit-profile-btn:hover {
+      background: #FF6B35;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="#" class="logo">MellMap</a>
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <div id="auth-buttons-main">
+        <button onclick="openAuthModal('login')" style="background: transparent; color: var(--text-color); border: 1px solid var(--border-color); padding: 5px 15px; border-radius: 20px; cursor: pointer; font-weight: 600;">Войти</button>
+        <button onclick="openAuthModal('register')" style="background: #FF6B35; color: white; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-weight: 600; margin-left: 10px;">Регистрация</button>
+      </div>
+
+      <div id="user-info-main" style="display:none; align-items: center; gap: 10px; cursor: pointer;" onclick="openProfileModal()">
+        <img id="user-avatar-display" src="" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: none;">
+        <span id="username-display-main" style="font-weight:600; color:#FF6B35;"></span>
+        <button onclick="event.stopPropagation(); logoutMain()" style="background:none; border:none; color:#999; cursor:pointer; margin-left: 10px;">Выйти</button>
+      </div>
+
+      <button class="theme-toggle" id="theme-toggle" aria-label="Переключить тему"></button>
+    </div>
+  </header>
+
+  <main>
+    <div class="left-col">
+      <h2>Добро пожаловать в MellMap!</h2>
+      <p>Это интерактивная карта заведений Москвы, где можно вкусно и комфортно позавтракать. Мы собрали только проверенные места с актуальной информацией о времени подачи завтраков.</p>
+      <h2>Почему именно завтраки?</h2>
+      <p>Завтрак — самый важный приём пищи. Но найти место, где его подают в нужное время, бывает сложно. В MellMap каждое заведение имеет чёткую категорию: «весь день», «только по выходным» или «в определённое время».</p>
+      <h2>Как это работает?</h2>
+      <div class="steps">
+        <ol>
+          <li>Нажмите кнопку «Карта»</li>
+          <li>Выберите район или тип заведения</li>
+          <li>Отфильтруйте по времени завтрака</li>
+          <li>Кликните на маркер, чтобы узнать подробности</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="center-col">
+      <div class="map-button-container">
+        <a href="/map" class="map-link">Карта</a>
+      </div>
+      <div class="quick-search">
+        <h3>Найди свой завтрак</h3>
+        <div style="display: grid; gap: 0.8rem; font-size: 0.95rem;">
+          <div><label>Округ:</label><select id="qs-district"><option value="">Любой</option><option value="ЦАО">ЦАО</option><option value="САО">САО</option><option value="СВАО">СВАО</option><option value="ВАО">ВАО</option><option value="ЮВАО">ЮВАО</option><option value="ЮАО">ЮАО</option><option value="ЮЗАО">ЮЗАО</option><option value="ЗАО">ЗАО</option><option value="СЗАО">СЗАО</option><option value="ЗелАО">ЗелАО</option><option value="НАО">НАО</option><option value="ТАО">ТАО</option></select></div>
+          <div><label>Категория:</label><select id="qs-category"><option value="">Любая</option><option value="cafe">Кафе</option><option value="restaurant">Ресторан</option><option value="bar">Бар</option></select></div>
+          <div><label>Время завтрака:</label><select id="qs-breakfast"><option value="">Любое</option><option value="all_day">Весь день</option><option value="weekends_only">Только по выходным</option><option value="specific_time">В определённое время</option></select></div>
+          <div><label>Макс. чек (₽):</label><input type="number" id="qs-price" placeholder="800"></div>
+          <div><label>Мин. рейтинг:</label><input type="number" step="0.1" id="qs-rating" placeholder="4.0" min="0" max="5"></div>
+          <button id="find-btn" class="find-btn">Найти завтрак!</button>
+        </div>
+        <div id="result">
+          <div id="result-name">...</div>
+          <div id="result-meta">...</div>
+          <a id="result-link" href="#">Показать на карте</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-col" id="featured-places">
+      <div class="place-card-fullheight" style="display: flex; align-items: center; justify-content: center; padding: 1.5rem; color: #999;"><p>Загрузка...</p></div>
+      <div class="place-card-fullheight" style="display: flex; align-items: center; justify-content: center; padding: 1.5rem; color: #999;"><p>Загрузка...</p></div>
+      <div class="place-card-fullheight" style="display: flex; align-items: center; justify-content: center; padding: 1.5rem; color: #999;"><p>Загрузка...</p></div>
+    </div>
+  </main>
+
+
+  <div id="auth-modal" class="auth-modal-overlay">
+    <div class="auth-box">
+      <span class="auth-close" onclick="closeAuthModal()">&times;</span>
+      <h3 id="auth-title" class="auth-title">Вход</h3>
+
+      <div id="login-form">
+        <input type="text" id="login-username" class="auth-input" placeholder="Логин">
+        <input type="password" id="login-password" class="auth-input" placeholder="Пароль">
+        <button onclick="submitLogin()" class="auth-submit">Войти</button>
+        <div class="auth-switch-text">Нет аккаунта? <a onclick="switchAuthMode('register')">Зарегистрироваться</a></div>
+      </div>
+
+      <div id="register-form" style="display:none;">
+        <div class="avatar-upload">
+          <label for="reg-avatar" class="avatar-label">
+            <img id="avatar-preview" class="avatar-preview" src="" alt="Avatar Preview">
+            <span id="avatar-placeholder">Фото</span>
+            <input type="file" id="reg-avatar" accept="image/*" style="display:none;" onchange="previewAvatar(this)">
+          </label>
+        </div>
+        <input type="text" id="reg-username" class="auth-input" placeholder="Логин">
+        <input type="email" id="reg-email" class="auth-input" placeholder="Email">
+        <div style="display:flex; gap:10px; margin-bottom:0.8rem;">
+          <select id="reg-gender" class="auth-input" style="margin-bottom:0;">
+            <option value="">Пол</option>
+            <option value="male">Мужской</option>
+            <option value="female">Женский</option>
+          </select>
+          <input type="number" id="reg-age" class="auth-input" placeholder="Возраст" min="10" max="100" style="margin-bottom:0;">
+        </div>
+        <input type="password" id="reg-password" class="auth-input" placeholder="Пароль">
+        <input type="password" id="reg-password-confirm" class="auth-input" placeholder="Подтвердите пароль">
+        <button onclick="submitRegister()" class="auth-submit">Зарегистрироваться</button>
+        <div class="auth-switch-text">Уже есть аккаунт? <a onclick="switchAuthMode('login')">Войти</a></div>
+      </div>
+      <p id="auth-error-msg" class="auth-error"></p>
+    </div>
+  </div>
+
+
+  <div id="profile-modal" class="auth-modal-overlay">
+    <div class="auth-box" style="width: 500px; max-height: 80vh; overflow-y: auto;">
+      <span class="auth-close" onclick="closeProfileModal()">&times;</span>
+
+      <div id="profile-view">
+        <h3 class="auth-title">Мой профиль</h3>
+        <img id="profile-avatar" src="" alt="Avatar" class="profile-avatar-large">
+        <div style="text-align: center; margin-bottom: 1rem;">
+          <h4 id="profile-username" style="font-size: 1.3rem; margin-bottom: 0.3rem;"></h4>
+          <p id="profile-details" style="color: #666;"></p>
+          <div class="dark-theme #profile-details { color: #aaa; }</div>
+        </div>
+        <div class="profile-stats">
+          <h4>Статистика</h4>
+          <p>Всего отзывов: <strong id="profile-review-count">0</strong></p>
+        </div>
+        <h4 style="margin-bottom: 1rem; color: #FF6B35;">Мои отзывы</h4>
+        <div id="profile-reviews-list" class="reviews-list">
+          <p style="color: #999; text-align: center;">Загрузка...</p>
+        </div>
+        <button onclick="openEditProfile()" class="edit-profile-btn">Редактировать профиль</button>
+      </div>
+
+      <div id="profile-edit" style="display:none;">
+        <h3 class="auth-title">Редактирование профиля</h3>
+        <div class="avatar-upload">
+          <label for="edit-avatar" class="avatar-label">
+            <img id="edit-avatar-preview" class="avatar-preview" src="" alt="Avatar Preview">
+            <span id="edit-avatar-placeholder">Фото</span>
+            <input type="file" id="edit-avatar" accept="image/*" style="display:none;" onchange="previewEditAvatar(this)">
+          </label>
+        </div>
+        <input type="text" id="edit-username" class="auth-input" placeholder="Логин">
+        <div style="display:flex; gap:10px; margin-bottom:0.8rem;">
+          <select id="edit-gender" class="auth-input" style="margin-bottom:0;">
+            <option value="">Пол</option>
+            <option value="male">Мужской</option>
+            <option value="female">Женский</option>
+          </select>
+          <input type="number" id="edit-age" class="auth-input" placeholder="Возраст" min="10" max="100" style="margin-bottom:0;">
+        </div>
+        <button onclick="saveProfile()" class="auth-submit">Сохранить изменения</button>
+        <button onclick="cancelEditProfile()" class="edit-profile-btn" style="margin-top: 0.5rem;">Отмена</button>
+        <p id="profile-edit-error" class="auth-error"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Тема ---
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') document.body.classList.add('dark-theme');
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      document.body.classList.toggle('dark-theme');
+      localStorage.setItem('theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+    });
+
+    // --- Авторизация  ---
+    let currentAuthMode = 'login';
+    function openAuthModal(mode) {
+      currentAuthMode = mode;
+      switchAuthMode(mode);
+      document.getElementById('auth-modal').classList.add('active');
+      document.getElementById('auth-error-msg').style.display = 'none';
+    }
+    function closeAuthModal() { document.getElementById('auth-modal').classList.remove('active'); }
+    function switchAuthMode(mode) {
+      currentAuthMode = mode;
+      const loginForm = document.getElementById('login-form');
+      const registerForm = document.getElementById('register-form');
+      const title = document.getElementById('auth-title');
+      if (mode === 'login') {
+        loginForm.style.display = 'block'; registerForm.style.display = 'none'; title.textContent = 'Вход';
+      } else {
+        loginForm.style.display = 'none'; registerForm.style.display = 'block'; title.textContent = 'Регистрация';
+      }
+    }
+
+    let currentAvatarBase64 = '';
+    function previewAvatar(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image(); img.src = e.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+            const MAX_WIDTH = 300; const scaleSize = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH; canvas.height = img.height * scaleSize;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            currentAvatarBase64 = canvas.toDataURL('image/jpeg', 0.8);
+            document.getElementById('avatar-preview').src = currentAvatarBase64;
+            document.getElementById('avatar-preview').style.display = 'block';
+            document.getElementById('avatar-placeholder').style.display = 'none';
+          };
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    function submitLogin() {
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      if (!username || !password) return showError('Заполните все поля');
+      fetch('/api/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username, password}) })
+      .then(r => r.json()).then(data => {
+        if (data.status === 'ok') { closeAuthModal(); location.reload(); }
+        else { showError(data.error || 'Ошибка входа'); }
+      }).catch(() => showError('Ошибка сети'));
+    }
+
+    function submitRegister() {
+      const username = document.getElementById('reg-username').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const confirmPass = document.getElementById('reg-password-confirm').value;
+      const gender = document.getElementById('reg-gender').value;
+      const age = document.getElementById('reg-age').value;
+      if (!username || !email || !password || !confirmPass) return showError('Заполните обязательные поля');
+      if (password !== confirmPass) return showError('Пароли не совпадают');
+      if (password.length < 6) return showError('Пароль должен быть минимум 6 символов');
+      fetch('/api/register', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username, email, password, avatar: currentAvatarBase64, gender, age }) })
+      .then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          alert('Регистрация успешна! Теперь войдите.');
+          switchAuthMode('login');
+          document.getElementById('reg-username').value = ''; document.getElementById('reg-email').value = '';
+          document.getElementById('reg-password').value = ''; document.getElementById('reg-password-confirm').value = '';
+          document.getElementById('reg-avatar').value = '';
+          document.getElementById('avatar-preview').style.display = 'none';
+          document.getElementById('avatar-placeholder').style.display = 'block';
+          currentAvatarBase64 = '';
+        } else { showError(data.error || 'Ошибка регистрации'); }
+      }).catch(() => showError('Ошибка сети'));
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('auth-error-msg'); el.textContent = msg; el.style.display = 'block';
+    }
+    window.logoutMain = () => fetch('/api/logout', {method: 'POST'}).then(() => location.reload());
+
+    fetch('/api/me').then(r => r.json()).then(data => {
+      if (data.logged_in) {
+        document.getElementById('auth-buttons-main').style.display = 'none';
+        document.getElementById('user-info-main').style.display = 'flex';
+        document.getElementById('username-display-main').textContent = data.username;
+        if (data.avatar) {
+          const av = document.getElementById('user-avatar-display'); av.src = data.avatar; av.style.display = 'block';
+        }
+      }
+    });
+
+    // --- Загрузка случайных мест ---
+    const NO_PHOTO_SVG = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iMTQwIiB5PSI2MCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5OTkiPk5vIFBob3RvPC90ZXh0Pjwvc3ZnPg==';
+    fetch('/api/places/random?count=3')
+      .then(res => res.json())
+      .then(places => {
+        const container = document.getElementById('featured-places'); container.innerHTML = '';
+        if (!Array.isArray(places) || places.length === 0) {
+          container.innerHTML = '<div class="place-card-fullheight" style="text-align:center;padding:1.5rem;"><p>Нет заведений в базе</p></div>'; return;
+        }
+        places.forEach(place => {
+          let photoUrl = NO_PHOTO_SVG;
+          if (Array.isArray(place.photos) && place.photos.length > 0 && typeof place.photos[0] === 'string' && place.photos[0].trim() !== '') photoUrl = place.photos[0];
+          const card = document.createElement('div'); card.className = 'place-card-fullheight';
+          card.innerHTML = `<div class="card-photo-16-9" style="background-image: url('${photoUrl}');"></div><div class="card-info-full"><h3>${place.name}</h3><div class="card-meta-full"><span>${place.district}</span> • ${place.category}</div><div class="card-meta-full">⭐ ${place.rating} • ${place.price}</div></div>`;
+          card.addEventListener('click', () => window.location.href = `/map?id=${place.id}`);
+          container.appendChild(card);
+        });
+      })
+      .catch(err => {
+        console.error('Ошибка загрузки случайных мест:', err);
+        document.getElementById('featured-places').innerHTML = '<div class="place-card-fullheight" style="text-align:center;padding:1.5rem;color:#f00;">Ошибка загрузки</div>';
+      });
+
+    // --- Быстрый поиск ---
+    document.getElementById('find-btn').addEventListener('click', async () => {
+      const params = new URLSearchParams();
+      const district = document.getElementById('qs-district').value;
+      const category = document.getElementById('qs-category').value;
+      const breakfast = document.getElementById('qs-breakfast').value;
+      const price = document.getElementById('qs-price').value;
+      const rating = document.getElementById('qs-rating').value;
+      if (district) params.append('district', district);
+      if (category) params.append('category', category);
+      if (breakfast) params.append('breakfast_time', breakfast);
+      if (price) params.append('max_price', price);
+      if (rating) params.append('min_rating', rating);
+      try {
+        const res = await fetch(`/api/places/random-match?${params}`);
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.error || 'Не найдено');
+        }
+        const place = await res.json();
+        document.getElementById('result-name').textContent = place.name;
+        document.getElementById('result-meta').textContent = `${place.district} • ${place.category} • ⭐ ${place.rating} • ${place.price}`;
+        document.getElementById('result-link').href = `/map?id=${place.id}`;
+        document.getElementById('result').style.display = 'block';
+      } catch (err) {
+        alert('Не удалось найти подходящее заведение \nПопробуйте изменить критерии.');
+        document.getElementById('result').style.display = 'none';
+      }
+    });
+
+    // --- ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ---
+    function openProfileModal() {
+      document.getElementById('profile-modal').classList.add('active');
+      loadProfileData();
+    }
+    function closeProfileModal() {
+      document.getElementById('profile-modal').classList.remove('active');
+      document.getElementById('profile-view').style.display = 'block';
+      document.getElementById('profile-edit').style.display = 'none';
+    }
+    function loadProfileData() {
+      fetch('/api/profile')
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { alert(data.error); closeProfileModal(); return; }
+          document.getElementById('profile-username').textContent = data.username;
+          let details = [];
+          if (data.gender) details.push(data.gender === 'male' ? 'Мужской' : 'Женский');
+          if (data.age) details.push(`${data.age} лет`);
+          document.getElementById('profile-details').textContent = details.join(', ') || 'Информация не указана';
+          const avatarImg = document.getElementById('profile-avatar');
+          if (data.avatar) { avatarImg.src = data.avatar; avatarImg.style.display = 'block'; } else { avatarImg.style.display = 'none'; }
+          document.getElementById('profile-review-count').textContent = data.review_count;
+          const reviewsList = document.getElementById('profile-reviews-list');
+          if (data.reviews.length === 0) {
+            reviewsList.innerHTML = '<p style="color: #999; text-align: center;">У вас пока нет отзывов</p>';
+          } else {
+            reviewsList.innerHTML = data.reviews.map(review => `
+              <div class="review-item">
+                <div class="review-item-header">
+                  <span class="review-item-place">${review.place_name}</span>
+                  <span class="review-item-rating">⭐ ${review.rating_total}</span>
+                </div>
+                <p style="margin-bottom: 0.3rem;">${review.text}</p>
+                <small class="review-item-date">${new Date(review.created_at).toLocaleDateString()}</small>
+              </div>
+            `).join('');
+          }
+          window.currentProfileData = data;
+        })
+        .catch(err => { console.error('Ошибка загрузки профиля:', err); alert('Не удалось загрузить профиль'); closeProfileModal(); });
+    }
+    function openEditProfile() {
+      document.getElementById('profile-view').style.display = 'none';
+      document.getElementById('profile-edit').style.display = 'block';
+      const data = window.currentProfileData;
+      document.getElementById('edit-username').value = data.username;
+      document.getElementById('edit-gender').value = data.gender || '';
+      document.getElementById('edit-age').value = data.age || '';
+      const editAvatarPreview = document.getElementById('edit-avatar-preview');
+      const editAvatarPlaceholder = document.getElementById('edit-avatar-placeholder');
+      if (data.avatar) {
+        editAvatarPreview.src = data.avatar; editAvatarPreview.style.display = 'block'; editAvatarPlaceholder.style.display = 'none';
+        window.currentEditAvatarBase64 = data.avatar;
+      } else {
+        editAvatarPreview.style.display = 'none'; editAvatarPlaceholder.style.display = 'block';
+        window.currentEditAvatarBase64 = '';
+      }
+      document.getElementById('profile-edit-error').style.display = 'none';
+    }
+    function cancelEditProfile() {
+      document.getElementById('profile-view').style.display = 'block';
+      document.getElementById('profile-edit').style.display = 'none';
+    }
+    window.currentEditAvatarBase64 = '';
+    function previewEditAvatar(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image(); img.src = e.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+            const MAX_WIDTH = 300; const scaleSize = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH; canvas.height = img.height * scaleSize;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            window.currentEditAvatarBase64 = canvas.toDataURL('image/jpeg', 0.8);
+            document.getElementById('edit-avatar-preview').src = window.currentEditAvatarBase64;
+            document.getElementById('edit-avatar-preview').style.display = 'block';
+            document.getElementById('edit-avatar-placeholder').style.display = 'none';
+          };
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+    function saveProfile() {
+      const username = document.getElementById('edit-username').value.trim();
+      const gender = document.getElementById('edit-gender').value;
+      const age = document.getElementById('edit-age').value;
+      if (!username) { showProfileEditError('Логин обязателен'); return; }
+      fetch('/api/profile', {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, gender, age, avatar: window.currentEditAvatarBase64 })
+      })
+      .then(r => r.json()).then(data => {
+        if (data.status === 'ok') { alert('Профиль успешно обновлён!'); closeProfileModal(); location.reload(); }
+        else { showProfileEditError(data.error || 'Ошибка сохранения'); }
+      }).catch(() => showProfileEditError('Ошибка сети'));
+    }
+    function showProfileEditError(msg) {
+      const el = document.getElementById('profile-edit-error'); el.textContent = msg; el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Админка — MellMap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { background-color: #fff; color: #333; min-height: 100vh; padding: 2rem; }
+    header { margin-bottom: 2rem; text-align: center; position: relative; }
+    .logo { font-size: 1.8rem; font-weight: 700; color: #FF6B35; }
+    .back-link {
+      position: absolute;
+      top: 0;
+      left: 0;
+      color: #FF6B35;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .container { display: flex; gap: 2rem; max-width: 1200px; margin: 0 auto; }
+    .form-section, .list-section { flex: 1; background: #f9f9f9; padding: 1.5rem; border-radius: 8px; }
+    h2 { margin-bottom: 1.2rem; color: #FF6B35; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.4rem; font-weight: 600; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
+    .form-group textarea {
+      height: 120px;
+      resize: vertical;
+      word-wrap: break-word;
+    }
+    .btn { background-color: #FF6B35; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background 0.3s; }
+    .btn:hover { background-color: #e05a2a; }
+    .delete-btn { background-color: #ff4d4d; padding: 0.3rem 0.6rem; font-size: 0.9rem; }
+    .edit-btn { background-color: #4CAF50; padding: 0.3rem 0.6rem; font-size: 0.9rem; }
+    .place-item { background: white; padding: 1rem; margin-bottom: 0.8rem; border-radius: 6px; border-left: 4px solid #FF6B35; cursor: pointer; transition: background 0.2s; }
+    .place-item:hover { background: #f0f0f0; }
+    .place-item h4 { margin-bottom: 0.3rem; }
+    .place-item p { font-size: 0.9rem; color: #666; }
+  </style>
+</head>
+<body>
+
+  <header>
+
+    <a href="/" class="back-link">← Вернуться на сайт</a>
+    <div class="logo">Админка — MellMap</div>
+  </header>
+
+  <div class="container">
+    <section class="form-section">
+      <h2 id="form-title">Добавить заведение</h2>
+      <form id="add-place-form">
+        <input type="hidden" id="edit-id" value="">
+        <div class="form-group">
+          <label>Название</label>
+          <input type="text" id="name" required>
+        </div>
+        <div class="form-group">
+          <label>Административный округ</label>
+          <select id="district" required>
+            <option value="ЦАО">ЦАО</option>
+            <option value="САО">САО</option>
+            <option value="СВАО">СВАО</option>
+            <option value="ВАО">ВАО</option>
+            <option value="ЮВАО">ЮВАО</option>
+            <option value="ЮАО">ЮАО</option>
+            <option value="ЮЗАО">ЮЗАО</option>
+            <option value="ЗАО">ЗАО</option>
+            <option value="СЗАО">СЗАО</option>
+            <option value="ЗелАО">ЗелАО</option>
+            <option value="НАО">НАО</option>
+            <option value="ТАО">ТАО</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Категория</label>
+          <select id="category" required>
+            <option value="cafe">Кафе</option>
+            <option value="restaurant">Ресторан</option>
+            <option value="bar">Бар</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Время завтрака</label>
+          <select id="breakfast-time" required>
+            <option value="all_day">Весь день</option>
+            <option value="weekends_only">Только по выходным</option>
+            <option value="specific_time">В определённое время</option>
+          </select>
+        </div>
+        <div class="form-group" id="breakfast-hours-group" style="display:none;">
+          <label>Время завтрака (например, 8:00–11:00)</label>
+          <input type="text" id="breakfast-hours" placeholder="8:00–11:00">
+        </div>
+        <div class="form-group">
+          <label>Широта (lat)</label>
+          <input type="number" step="any" id="lat" required>
+        </div>
+        <div class="form-group">
+          <label>Долгота (lng)</label>
+          <input type="number" step="any" id="lng" required>
+        </div>
+        <div class="form-group">
+          <label>Адрес</label>
+          <input type="text" id="address" required>
+        </div>
+        <div class="form-group">
+          <label>Ссылка на заведение (опционально)</label>
+          <input type="url" id="website" placeholder="https://example.com">
+          <p style="font-size: 0.85rem; color: #666; margin-top: 0.3rem;">Можно оставить пустым</p>
+        </div>
+        <div class="form-group">
+          <label>Средний чек (₽)</label>
+          <input type="number" id="price" required>
+        </div>
+        <div class="form-group">
+          <label>Рейтинг (0–5)</label>
+          <input type="number" min="0" max="5" step="0.1" id="rating" value="4.0" required>
+        </div>
+        <div class="form-group">
+          <label>Описание</label>
+          <textarea id="description" placeholder="Несколько слов об этом месте..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Фото (можно несколько)</label>
+          <input type="file" id="photo-files" accept="image/*" multiple>
+          <p style="font-size: 0.85rem; color: #666; margin-top: 0.3rem;">
+            Поддерживаются JPG, PNG (рекомендуется до 1 МБ)
+          </p>
+        </div>
+        <div class="btn-group">
+          <button type="submit" class="btn" id="save-btn">Сохранить</button>
+          <button type="button" class="btn" id="cancel-btn" style="background: #999;">Отмена</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="list-section">
+      <h2>Список заведений</h2>
+      <div id="places-list"><p>Загрузка...</p></div>
+    </section>
+  </div>
+
+
+  <script>
+    // 🔑 Установи свой пароль здесь!
+    const ADMIN_PASSWORD = '201009'; // ← МЕНЯЙ НА СВОЙ!
+
+    // Проверяем, был ли уже введён пароль
+    if (!sessionStorage.getItem('admin_access')) {
+      const password = prompt('🔒 Введите пароль для доступа к админке:');
+      if (password !== ADMIN_PASSWORD) {
+        alert('❌ Неверный пароль!');
+        window.location.href = '/';
+      } else {
+        sessionStorage.setItem('admin_access', 'true');
+      }
+    }
+  </script>
+
+  <script src="/static/assets/js/admin.js"></script>
+
+  <script>
+    document.getElementById('breakfast-time').addEventListener('change', function() {
+      const hoursGroup = document.getElementById('breakfast-hours-group');
+      if (this.value === 'specific_time') {
+        hoursGroup.style.display = 'block';
+      } else {
+        hoursGroup.style.display = 'none';
+        document.getElementById('breakfast-hours').value = '';
+      }
+    });
+  </script>
+</body>
+</html>
